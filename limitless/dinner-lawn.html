@@ -1,10 +1,10 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Limitless · Dinner lawn</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#101727;color:#fff;font:15px system-ui}canvas{display:block;touch-action:none;cursor:grab}header,footer{position:fixed;z-index:1;background:#101727eb;padding:16px 20px;border:1px solid #bc9a5166;border-radius:12px}header{top:18px;left:18px;pointer-events:none}footer{bottom:18px;left:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}small{color:#e6c47e;letter-spacing:.16em}h1{font-size:22px;margin:4px 0 0}button,a{font:inherit;color:#fff;background:#26334b;border:1px solid #726044;border-radius:6px;padding:8px 12px;cursor:pointer;text-decoration:none}span{color:#ddd;font-size:13px}
+*{box-sizing:border-box}body{margin:0;background:#101727;color:#fff;font:15px system-ui}canvas{display:block;touch-action:none;cursor:grab}header,footer{position:fixed;z-index:1;background:#101727eb;padding:16px 20px;border:1px solid #bc9a5166;border-radius:12px}header{top:18px;left:18px;pointer-events:none}footer{bottom:18px;left:18px;max-width:calc(100vw - 36px);display:flex;gap:10px;align-items:center;flex-wrap:wrap}small{color:#e6c47e;letter-spacing:.16em}h1{font-size:22px;margin:4px 0 0}button,a{font:inherit;color:#fff;background:#26334b;border:1px solid #726044;border-radius:6px;padding:8px 12px;cursor:pointer;text-decoration:none}span{color:#ddd;font-size:13px}
 </style>
 <header><small>LIMITLESS / OUTDOOR</small><h1>Dinner lawn</h1></header>
-<footer><button id="play">Play walkthrough</button><button id="reset">Reset view</button><button id="layout">Lawn layout</button><a href="main-hall.html">Main hall</a><a href="./">Entrance arch</a><span>Drag to look around · Scroll to walk</span></footer>
+<footer><button id="play">Play walkthrough</button><button id="reset">Reset view</button><button id="outdoor-led">Lawn LED stage</button><button id="layout">Lawn layout</button><a href="main-hall.html">Main hall</a><a href="./">Entrance arch</a><span>Drag to look around · Scroll to walk</span><a href="tour.html">Guided route</a></footer>
 <script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
@@ -164,8 +164,20 @@ const key=new THREE.DirectionalLight(0xfbd1a0,1.15);
 key.position.set(24,35,50);
 scene.add(key);
 
+
+const riser=box(7,4,17.6,-85,2,-1,dark);
+const ledBody=box(.53,10,16,-85,9,-1,navy);
+const led=new THREE.Mesh(new THREE.PlaneGeometry(16,10),print('art/outdoor-led.jpg'));
+led.rotation.y=Math.PI/2;
+led.position.set(-84.728,9,-1);
+scene.add(led);
+for(const z of [-9.1,7.1]) box(.08,10,.095,-84.69,9,z,gold);
+
 const canvas=renderer.domElement;
 const play=document.getElementById('play'), overview=document.getElementById('layout');
+let showStage=false;
+const stageToggle=document.getElementById("outdoor-led");
+stageToggle.onclick=()=>{pause();layout=false;overview.textContent="Lawn layout";showStage=!showStage;stageToggle.textContent=showStage?"Lawn view":"Lawn LED stage";};
 let progress=0, started=null, layout=false, yaw=0, lift=0, drag=null;
 const path=new THREE.CatmullRomCurve3([
   new THREE.Vector3(-29,7,37),new THREE.Vector3(-24,6.8,32),
@@ -173,12 +185,13 @@ const path=new THREE.CatmullRomCurve3([
   new THREE.Vector3(-8,5.8,20)
 ]);
 function pause(){started=null;play.textContent=progress>=1?'Replay walkthrough':'Play walkthrough';}
-function reset(){progress=0;yaw=0;lift=0;layout=false;overview.textContent='Lawn layout';pause();}
+function reset(){showStage=false;stageToggle.textContent='Lawn LED stage';progress=0;yaw=0;lift=0;layout=false;overview.textContent='Lawn layout';pause();}
 document.getElementById('reset').onclick=reset;
 overview.onclick=()=>{pause();layout=!layout;overview.textContent=layout?'Walkthrough view':'Lawn layout';};
 play.onclick=()=>{
   if(started!==null){pause();return;}
   if(progress>=1)reset();
+  showStage=false;stageToggle.textContent='Lawn LED stage';
   layout=false;overview.textContent='Lawn layout';
   started=performance.now()-progress*16000;
   play.textContent='Pause walkthrough';
@@ -208,6 +221,9 @@ renderer.setAnimationLoop(now=>{
   if(layout){
     camera.position.set(0,Math.max(153,122/camera.aspect),.01);
     camera.lookAt(0,0,0);
+  }else if(showStage){
+    camera.position.set(-53,8+lift*.25,10+yaw*.3);
+    camera.lookAt(-85,7,-1);
   }else{
     const point=path.getPointAt(progress);
     camera.position.copy(point);

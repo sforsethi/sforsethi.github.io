@@ -1,0 +1,33 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Limitless · Guided walkthrough</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101727;color:white;font:15px system-ui;height:100dvh;display:grid;grid-template-rows:auto 1fr}header{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:11px 15px;border-bottom:1px solid #927745}strong{color:#f0cd85;margin-right:auto;letter-spacing:.13em}button,select{font:inherit;color:white;background:#26334b;border:1px solid #726044;border-radius:6px;padding:7px 10px}button{cursor:pointer}button:disabled{opacity:.4;cursor:default}iframe{width:100%;height:100%;border:0;min-height:0}
+</style>
+<header><strong>LIMITLESS · GUIDED ROUTE</strong><button id="prev">Previous</button><select id="stops" aria-label="Walkthrough stop"></select><button id="next">Next</button><button id="auto">Play full route</button></header>
+<iframe id="scene" title="3D walkthrough scene" allow="autoplay"></iframe>
+<script>
+const route=[["Arrival & wayfinding", "arrival.html"], ["Entrance arch", "index.html"], ["Red carpet corridor", "corridor.html"], ["Hi-tea pergola", "hi-tea.html"], ["Photo opportunity", "photo-opportunity.html"], ["Registration desk", "registration.html"], ["Glass door entry", "glass-entry.html"], ["L-shaped indoor standee", "indoor-standee.html"], ["Indoor corridor panels", "indoor-panels.html"], ["View-blocker panels", "view-blockers.html"], ["Main hall & banquet seating", "main-hall.html"], ["Main hall ceiling banners", "main-hall.html", "banners"], ["Dinner lawn branding", "dinner-lawn.html"], ["Dinner lawn LED stage", "dinner-lawn.html", "outdoor-led"]];
+const scene=document.getElementById('scene'), select=document.getElementById('stops');
+const prev=document.getElementById('prev'), next=document.getElementById('next'), auto=document.getElementById('auto');
+let index=0, running=false, timer;
+route.forEach(([title],i)=>select.add(new Option(String(i+1).padStart(2,'0')+' · '+title,i)));
+function stop(){running=false;clearTimeout(timer);auto.textContent='Play full route';}
+function show(value){
+  clearTimeout(timer);
+  index=value;select.value=value;
+  prev.disabled=index===0;next.disabled=index===route.length-1;
+  scene.src=route[index][1]+'?stop='+index;
+}
+scene.onload=()=>{
+  const [, , detail]=route[index];
+  const doc=scene.contentDocument;
+  if(detail)doc.getElementById(detail)?.click();
+  else if(running)doc.getElementById('play')?.click();
+  if(running)timer=setTimeout(()=>index+1<route.length?show(index+1):stop(),detail?6500:16500);
+};
+select.onchange=()=>{stop();show(Number(select.value));};
+prev.onclick=()=>{stop();show(index-1);};
+next.onclick=()=>{stop();show(index+1);};
+auto.onclick=()=>{if(running){stop();show(index);return;}running=true;auto.textContent='Stop full route';show(0);};
+show(0);
+</script></html>

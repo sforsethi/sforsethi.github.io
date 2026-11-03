@@ -1,10 +1,10 @@
 <!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Limitless · Main hall</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#101727;color:#fff;font:15px system-ui}canvas{display:block;touch-action:none;cursor:grab}header,footer{position:fixed;z-index:1;background:#101727eb;padding:16px 20px;border:1px solid #bc9a5166;border-radius:12px}header{top:18px;left:18px;pointer-events:none}footer{bottom:18px;left:18px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}small{color:#e6c47e;letter-spacing:.16em}h1{font-size:22px;margin:4px 0 0}button,a{font:inherit;color:#fff;background:#26334b;border:1px solid #726044;border-radius:6px;padding:8px 12px;cursor:pointer;text-decoration:none}span{color:#ddd;font-size:13px}
+*{box-sizing:border-box}body{margin:0;background:#101727;color:#fff;font:15px system-ui}canvas{display:block;touch-action:none;cursor:grab}header,footer{position:fixed;z-index:1;background:#101727eb;padding:16px 20px;border:1px solid #bc9a5166;border-radius:12px}header{top:18px;left:18px;pointer-events:none}footer{bottom:18px;left:18px;max-width:calc(100vw - 36px);display:flex;gap:10px;align-items:center;flex-wrap:wrap}small{color:#e6c47e;letter-spacing:.16em}h1{font-size:22px;margin:4px 0 0}button,a{font:inherit;color:#fff;background:#26334b;border:1px solid #726044;border-radius:6px;padding:8px 12px;cursor:pointer;text-decoration:none}span{color:#ddd;font-size:13px}
 </style>
 <header><small>LIMITLESS / MAIN EVENT</small><h1>Main hall</h1><small>57 TABLES · 456 SEATS</small></header>
-<footer><button id="play">Play walkthrough</button><button id="reset">Reset view</button><button id="layout">Seating layout</button><a href="./">Entrance arch</a><a href="indoor-standee.html">Indoor standee</a><a href="dinner-lawn.html">Dinner lawn</a><span>Drag to look around · Scroll to move</span></footer>
+<footer><button id="play">Play walkthrough</button><button id="reset">Reset view</button><button id="banners">Ceiling banners</button><button id="layout">Seating layout</button><a href="./">Entrance arch</a><a href="indoor-standee.html">Indoor standee</a><a href="dinner-lawn.html">Dinner lawn</a><span>Drag to look around · Scroll to move</span><a href="tour.html">Guided route</a></footer>
 <script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
@@ -174,16 +174,34 @@ const key=new THREE.DirectionalLight(0xffddae,1.35);
 key.position.set(-30,38,45);
 scene.add(key);
 
+
+const bannerRods=standard(0xaf8352);
+for(let i=0;i<8;i++){
+  const x=(i-3.5)*10.2,z=26+(i%2)*8.5;
+  const map=new THREE.TextureLoader().load('art/banner-'+i+'.png');
+  map.colorSpace=THREE.SRGBColorSpace;
+  map.anisotropy=renderer.capabilities.getMaxAnisotropy();
+  const cloth=new THREE.Mesh(new THREE.PlaneGeometry(46/12,10),new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide,alphaTest:.5}));
+  cloth.position.set(x,21.1,z);
+  scene.add(cloth);
+  box(4.13,.1,.1,x,26.12,z,bannerRods);
+  for(const side of [-1,1]) box(.023,4.8,.023,x+side*1.54,28.55,z,bannerRods);
+}
+
 const canvas=renderer.domElement;
 const play=document.getElementById('play'), overview=document.getElementById('layout');
+let showBanners=false;
+const bannerToggle=document.getElementById("banners");
+bannerToggle.onclick=()=>{pause();layout=false;overview.textContent="Seating layout";showBanners=!showBanners;bannerToggle.textContent=showBanners?"Ballroom view":"Ceiling banners";};
 let progress=0, started=null, layout=false, yaw=0, lift=0, drag=null;
 function pause(){started=null;play.textContent=progress>=1?'Replay walkthrough':'Play walkthrough';}
-function reset(){progress=0;yaw=0;lift=0;layout=false;overview.textContent='Seating layout';pause();}
+function reset(){showBanners=false;bannerToggle.textContent='Ceiling banners';progress=0;yaw=0;lift=0;layout=false;overview.textContent='Seating layout';pause();}
 document.getElementById('reset').onclick=reset;
 overview.onclick=()=>{pause();layout=!layout;overview.textContent=layout?'Ballroom view':'Seating layout';};
 play.onclick=()=>{
   if(started!==null){pause();return;}
   if(progress>=1)reset();
+  showBanners=false;bannerToggle.textContent='Ceiling banners';
   layout=false;overview.textContent='Seating layout';
   started=performance.now()-progress*15000;
   play.textContent='Pause walkthrough';
@@ -213,6 +231,9 @@ renderer.setAnimationLoop(now=>{
   if(layout){
     camera.position.set(yaw,190+lift,51.01);
     camera.lookAt(0,0,50.9);
+  }else if(showBanners){
+    camera.position.set(yaw*.28,11+lift*.2,72);
+    camera.lookAt(yaw,22,30);
   }else{
     const t=progress*progress*(3-2*progress);
     camera.position.set(THREE.MathUtils.lerp(9,-9,t)+yaw*.25,Math.max(5,THREE.MathUtils.lerp(16,8,t)+lift),THREE.MathUtils.lerp(107,73,t));
