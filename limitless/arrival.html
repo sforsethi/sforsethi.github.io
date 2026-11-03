@@ -71,30 +71,14 @@ function uplight(x,z){
 }
 
 floor(true);
-box(55,2.7,2.2,0,11.6,-5.2,stone);
-for(const x of [-20,-.8,20]) box(3.1,11,2.1,x,5.5,-5.2,stone);
-for(let x=-18;x<19;x+=.65) box(.052,5.2,.055,x,2.6,-6.4,dark);
-box(38,.11,.08,0,4.75,-6.4,dark);
-const name=document.createElement('canvas');
-name.width=2048;name.height=160;
-const ink=name.getContext('2d');
-ink.fillStyle='#aa8a72';ink.fillRect(0,0,2048,160);
-ink.fillStyle='#231912';ink.textAlign='center';ink.textBaseline='middle';ink.font='700 94px Georgia';
-ink.fillText('JAYPEE INTEGRATED SPORTS COMPLEX',1024,78);
-const nameMap=new THREE.CanvasTexture(name);
-nameMap.colorSpace=THREE.SRGBColorSpace;
-box(37,1.8,.04,0,11.65,-4.08,new THREE.MeshBasicMaterial({map:nameMap}));
-sign(8,8,-9.4,1.4,'parking.jpg',.10);
-sign(8,8,0,.3,'entry.jpg',.02);
-sign(4,8,8.25,-.5,'dinner-wayfinding.jpg',-.14);
-sign(4,8,13.3,-2.4,'dinner-wayfinding.jpg',-.14);
-for(const [x,z] of [[-9.4,1.8],[0,.7],[8.25,0],[13.3,-2]]){box(4.3,.19,1,x,.095,z-.2,dark);uplight(x,z+.44);}
+sign(8,8,0,0,'parking.jpg');
+box(8.35,.16,1.12,0,.08,0,dark);
 const canvas=renderer.domElement;
-const target=new THREE.Vector3(1.6,4.7,0);
-let angle=0.12, height=.075, distance=36, start=null, drag=null;
+const target=new THREE.Vector3(0,4.2,0);
+let angle=0.12, height=.075, distance=16, start=null, drag=null;
 const play=document.getElementById('play');
 function stop(){start=null;play.textContent='Play walkthrough';}
-function reset(){stop();angle=0.12;height=.075;distance=36;}
+function reset(){stop();angle=0.12;height=.075;distance=16;}
 document.getElementById('reset').onclick=reset;
 play.onclick=()=>{if(start!==null){stop();return;}start=performance.now();play.textContent='Pause walkthrough';};
 canvas.onpointerdown=e=>{stop();drag=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId);};
@@ -118,7 +102,7 @@ renderer.setAnimationLoop(now=>{
     const t=THREE.MathUtils.clamp((now-start)/10000,0,1);
     const eased=t*t*(3-2*t);
     angle=THREE.MathUtils.lerp(.30,-.24,eased);
-    distance=THREE.MathUtils.lerp(39,33,eased);
+    distance=THREE.MathUtils.lerp(19,14,eased);
     height=THREE.MathUtils.lerp(.12,.025,eased);
     if(t===1)stop();
   }
