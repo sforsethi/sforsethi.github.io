@@ -2,9 +2,13 @@
 <title>Limitless · Photo opportunity</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#101727;color:#fff;font:15px system-ui}canvas{display:block;touch-action:none;cursor:grab}header,footer{position:fixed;z-index:1;background:#101727eb;padding:16px 20px;border:1px solid #bc9a5166;border-radius:12px}header{top:18px;left:18px;pointer-events:none}footer{bottom:18px;left:18px;max-width:calc(100vw - 36px);display:flex;gap:10px;align-items:center;flex-wrap:wrap}small{color:#e6c47e;letter-spacing:.16em}h1{font-size:22px;margin:4px 0 0}button,a{font:inherit;color:#fff;background:#26334b;border:1px solid #726044;border-radius:6px;padding:8px 12px;cursor:pointer;text-decoration:none}span{color:#ddd;font-size:13px}
+
+.scene-nav{position:fixed;z-index:2;left:18px;top:110px;bottom:100px;width:205px;overflow:auto;padding:8px;background:#101727eb;border:1px solid #bc9a5166;border-radius:12px}
+.scene-nav summary{cursor:pointer;padding:6px;color:#e6c47e;font-weight:600}.scene-nav a{display:block;margin:4px 0;padding:6px 8px;font-size:13px}.scene-nav a[aria-current]{background:#55462d;border-color:#e6c47e}
+@media(max-width:700px){.scene-nav{width:174px;max-height:55dvh;bottom:auto}.scene-nav:not([open]){width:auto}}
 </style>
 <header><small>LIMITLESS / EVENT WALKTHROUGH</small><h1>Photo opportunity</h1></header>
-<footer><button id="play">Play walkthrough</button><button id="reset">Reset view</button><a href="tour.html">Guided route</a><span>Drag to orbit · Scroll to zoom</span></footer><script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
+<details class="scene-nav" open><summary>All views</summary><nav aria-label="Walkthrough views"><a href="arrival.html">Arrival &amp; wayfinding</a><a href="./">Entrance arch</a><a href="corridor.html">Red carpet corridor</a><a href="hi-tea.html">Hi-tea pergola</a><a href="photo-opportunity.html" aria-current="page">Photo opportunity</a><a href="registration.html">Registration desk</a><a href="glass-entry.html">Glass door entry</a><a href="indoor-standee.html">L-shaped indoor standee</a><a href="indoor-panels.html">Indoor corridor panels</a><a href="view-blockers.html">View-blocker panels</a><a href="main-hall.html">Main hall &amp; banquet seating</a><a href="main-hall.html?#banners">Main hall ceiling banners</a><a href="dinner-lawn.html">Dinner lawn branding</a><a href="dinner-lawn.html?#outdoor-led">Dinner lawn LED stage</a></nav></details><footer><button id="play">Play walkthrough</button><button id="reset">Reset view</button><span>Drag to orbit · Scroll to zoom</span></footer><script>console.warn('Scripts "build/three.js" and "build/three.min.js" are deprecated with r150+, and will be removed with r160. Please use ES Modules or alternatives: https://threejs.org/docs/index.html#manual/en/introduction/Installation'),
 /**
  * @license
  * Copyright 2010-2023 Three.js Authors
@@ -136,4 +140,20 @@ renderer.setAnimationLoop(now=>{
   camera.lookAt(target);
   renderer.render(scene,camera);
 });
+</script><script>
+const sceneMenu=document.querySelector('.scene-nav');
+if(matchMedia('(max-width:700px)').matches)sceneMenu.open=false;
+function selectDetail(){
+  const id=location.hash.slice(1);
+  if(!['banners','outdoor-led'].includes(id))return;
+  const control=document.getElementById(id);
+  if(control&&['Ceiling banners','Lawn LED stage'].includes(control.textContent))control.click();
+  const link=sceneMenu.querySelector('a[href$="#'+id+'"]');
+  if(link&&control){
+    sceneMenu.querySelector('[aria-current]')?.removeAttribute('aria-current');
+    link.setAttribute('aria-current','page');
+  }
+}
+selectDetail();
+addEventListener('hashchange',selectDetail);
 </script></html>
