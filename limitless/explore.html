@@ -3,36 +3,50 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#101727;color:white;font:15px system-ui}canvas{display:block;touch-action:none}header,footer{position:fixed;z-index:2;background:#101727ee;border:1px solid #8d7246;border-radius:10px;padding:12px;left:14px;max-width:calc(100vw - 28px)}header{top:14px}footer{bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}small{letter-spacing:.15em;color:#eac980}h1{font-size:21px;margin:3px 0 9px}select,button,a{background:#26334b;border:1px solid #8d7246;color:white;border-radius:6px;padding:7px 9px;font:inherit;text-decoration:none}button{cursor:pointer}button:disabled{opacity:.45}#status{font-size:13px;color:#efcb88}#reticle{position:fixed;left:50%;top:50%;width:5px;height:5px;border-radius:50%;background:#fff9;pointer-events:none}iframe{display:none}#touch{display:none}@media(pointer:coarse){#touch{display:inline-flex;gap:4px}}
 </style>
-<header><small>LIMITLESS / FIRST PERSON</small><h1 id="title">Loading walkthrough</h1><select id="views" aria-label="Choose a view"></select></header>
+<header><small>LIMITLESS / CONTINUOUS WALKTHROUGH</small><h1>Event walkthrough</h1><div id="status" aria-live="polite">Building the route…</div></header>
 <div id="reticle"></div>
-<footer><button id="previous">Previous</button><button id="next">Next view</button><button id="reset">Reset position</button><a href="./">Scene pages</a><span id="touch"><button data-move="KeyW">↑</button><button data-move="KeyA">←</button><button data-move="KeyS">↓</button><button data-move="KeyD">→</button></span><span id="status">WASD to move · Drag or click to look · E for next view</span></footer>
+<footer><button id="auto" disabled>Auto walkthrough</button><button id="reset" disabled>Back to start</button><a href="./">Scene pages</a><span id="touch"><button data-move="KeyW">↑</button><button data-move="KeyA">←</button><button data-move="KeyS">↓</button><button data-move="KeyD">→</button></span><span>WASD to walk · Shift to move faster · Drag or click to look</span></footer>
 <script src="art/three.min.js"></script>
 <script>
 const stops=[["Arrival & wayfinding", "arrival.html"], ["Entrance arch", "index.html"], ["Red carpet corridor", "corridor.html"], ["Hi-tea pergola", "hi-tea.html"], ["Photo opportunity", "photo-opportunity.html"], ["Registration desk", "registration.html"], ["Glass door entry", "glass-entry.html"], ["L-shaped indoor standee", "indoor-standee.html"], ["Indoor corridor panels", "indoor-panels.html"], ["View-blocker panels", "view-blockers.html"], ["Main hall & banquet seating", "main-hall.html"], ["Main hall ceiling banners", "main-hall.html", "banners"], ["Dinner lawn branding", "dinner-lawn.html"], ["Dinner lawn LED stage", "dinner-lawn.html", "outdoor-led"]];
-const canvasRenderer=new THREE.WebGLRenderer({antialias:true});
-canvasRenderer.shadowMap.enabled=true;
-canvasRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
-document.body.prepend(canvasRenderer.domElement);
-const world=new THREE.Scene(), camera=new THREE.PerspectiveCamera(58,1,.08,500);
-const zone=new THREE.Group();
-world.add(zone);
-const title=document.getElementById('title'), select=document.getElementById('views');
-const previous=document.getElementById('previous'), next=document.getElementById('next');
-const status=document.getElementById('status');
-const controls='WASD to move · Drag or click to look · E for next view';
-stops.forEach(([name],i)=>select.add(new Option((i+1)+' · '+name,i)));
-let current=0, request=0, active=null, drag=null, yaw=0, pitch=0, portal=null;
-const rooms=new Map(), keys=new Set(), angles=new THREE.Euler(0,0,0,'YXZ');
-const position=new THREE.Vector3(), forward=new THREE.Vector3(), lateral=new THREE.Vector3();
-const canvas=canvasRenderer.domElement;
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+document.body.prepend(renderer.domElement);
+const world=new THREE.Scene();
+world.background=new THREE.Color(0x202b40);
+world.fog=new THREE.Fog(0x202b40,105,245);
+const camera=new THREE.PerspectiveCamera(61,1,.08,330);
+const canvas=renderer.domElement;
+const status=document.getElementById('status'), auto=document.getElementById('auto'), resetButton=document.getElementById('reset');
+const route=stops.map((stop,index)=>({stop,index})).filter(({stop})=>!stop[2]);
+const spacing=[22,32,28,28,30,25,31,28,46,36,225,232];
+let total=18;
+for(let i=0;i<route.length;i++){
+  route[i].x=total+spacing[i]/2;
+  total+=spacing[i]+8;
+}
+const pathWidth=12, groundY=-.045;
+const material=color=>new THREE.MeshStandardMaterial({color,roughness:.88});
+function box(w,h,d,x,y,z,mat){
+  const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+  mesh.position.set(x,y,z);world.add(mesh);return mesh;
+}
+const base=material(0x2d302f), paving=material(0x58504c);
+const trim=new THREE.MeshBasicMaterial({color:0xc99d59});
+box(total+65,.16,520,total/2,groundY-.08,-95,base);
+box(total+16,.035,pathWidth,total/2,.033,0,paving);
+for(const z of [-5.9,5.9])box(total+16,.012,.085,total/2,.058,z,trim);
+for(let x=-5;x<total+10;x+=4)box(.027,.006,pathWidth,x,.054,0,base);
+world.add(new THREE.HemisphereLight(0xe7edff,0x8b7663,1.78));
+const key=new THREE.DirectionalLight(0xffe2bf,1.55);
+key.position.set(25,40,20);world.add(key);
 function resize(){
   camera.aspect=innerWidth/innerHeight;
-  camera.fov=camera.aspect<1.2?Math.min(95,58/camera.aspect):58;
+  camera.fov=camera.aspect<1.2?Math.min(95,61/camera.aspect):61;
   camera.updateProjectionMatrix();
-  canvasRenderer.setSize(innerWidth,innerHeight);
+  renderer.setSize(innerWidth,innerHeight);
 }
 addEventListener('resize',resize);resize();
-
 function photoRoom(){
   const room=new THREE.Scene();
   room.background=new THREE.Color(0x101727);
@@ -51,7 +65,7 @@ function photoRoom(){
 }
 
 async function loadRoom(index){
-  const [,file,detail]=stops[index];
+  const [,file]=stops[index];
   if(file==='photo-opportunity.html')return photoRoom();
   const response=await fetch(file);
   if(!response.ok)throw Error('Could not load '+file);
@@ -61,7 +75,6 @@ async function loadRoom(index){
   const program=scripts[1].textContent.replace('renderer.setAnimationLoop(now=>','window.walkFrame=(now=>');
   const frame=document.createElement('iframe');
   const exportCode=`
-    if (${JSON.stringify(detail||'')})document.getElementById(${JSON.stringify(detail||'')})?.click();
     window.walkFrame(performance.now());
     window.walkRoom={room:scene,view:camera};
   `;
@@ -84,84 +97,68 @@ async function loadRoom(index){
   }finally{frame.remove();}
 }
 
-function createPortal(view){
-  const direction=new THREE.Vector3(0,0,-1).applyQuaternion(view.quaternion);
-  direction.y=0;direction.normalize();
-  const side=new THREE.Vector3().crossVectors(direction,new THREE.Vector3(0,1,0));
-  const marker=new THREE.Group();
-  marker.position.copy(view.position).addScaledVector(direction,7).addScaledVector(side,5.5);
-  marker.position.y=view.position.y-1.5;
-  marker.rotation.y=Math.atan2(-direction.x,-direction.z);
-  const outline=new THREE.Mesh(new THREE.TorusGeometry(1.34,.045,8,48),new THREE.MeshBasicMaterial({color:0xe7bf75}));
-  outline.scale.y=1.32;
-  marker.add(outline);
+
+function label(name,i,x){
   const paint=document.createElement('canvas');
-  paint.width=512;paint.height=160;
-  const ctx=paint.getContext('2d');
-  ctx.fillStyle='#141c2d';ctx.fillRect(0,0,512,160);
-  ctx.fillStyle='#f2cf8d';ctx.textAlign='center';ctx.font='600 52px system-ui';
-  ctx.fillText('NEXT VIEW',256,98);
-  const map=new THREE.CanvasTexture(paint);
-  map.colorSpace=THREE.SRGBColorSpace;
-  const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.1,.66),new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}));
-  sign.position.y=.12;
-  marker.add(sign);
-  return marker;
+  paint.width=1024;paint.height=192;
+  const ink=paint.getContext('2d');
+  ink.fillStyle='#111a2d';ink.fillRect(0,0,1024,192);
+  ink.strokeStyle='#bd995d';ink.lineWidth=7;ink.strokeRect(5,5,1014,182);
+  ink.fillStyle='#e8c681';ink.font='600 29px system-ui';ink.fillText('STOP '+String(i+1).padStart(2,'0'),38,55);
+  ink.fillStyle='#fff';ink.font='600 48px system-ui';ink.fillText(name,38,127);
+  const map=new THREE.CanvasTexture(paint);map.colorSpace=THREE.SRGBColorSpace;
+  const sign=box(9.7,1.82,.13,x,8.35,-7,new THREE.MeshBasicMaterial({map}));
+  sign.rotation.y=.33;
+  for(const dx of [-4.2,4.2])box(.065,7.5,.065,x+dx,3.75,-7,trim);
 }
-function reset(){
-  if(!active)return;
-  position.copy(active.view.position);
-  angles.setFromQuaternion(active.view.quaternion,'YXZ');
-  yaw=angles.y;pitch=angles.x;
-}
-async function show(index){
-  if(index<0||index>=stops.length)return;
-  const token=++request;
-  status.textContent='Loading '+stops[index][0]+'…';
-  next.disabled=previous.disabled=true;
-  try{
-    if(!rooms.has(index))rooms.set(index,loadRoom(index).catch(error=>{rooms.delete(index);throw error;}));
-    const room=await rooms.get(index);
-    if(token!==request)return;
-    active=room;current=index;select.value=index;title.textContent=stops[index][0];
-    zone.clear();
-    if(!room.group){room.group=new THREE.Group();room.group.add(...room.room.children.slice());}
-    zone.add(room.group);
-    world.background=room.room.background;
-    world.fog=room.room.fog;
-    portal=index<stops.length-1?createPortal(room.view):null;
-    if(portal)zone.add(portal);
-    reset();
-    status.textContent=controls;
-  }catch(error){
-    if(token===request)status.textContent=error.message;
-  }finally{
-    if(token===request){
-      previous.disabled=current===0;
-      next.disabled=current===stops.length-1;
+function install(room,x,name,i){
+  const group=new THREE.Group();
+  const direction=new THREE.Vector3(0,0,-1).applyQuaternion(room.view.quaternion);
+  const rotation=Math.atan2(direction.x,-direction.z);
+  group.rotation.y=rotation;
+  const origin=room.view.position.clone().applyAxisAngle(new THREE.Vector3(0,1,0),rotation);
+  group.position.set(x-origin.x,.012,-9-origin.z);
+  for(const object of room.room.children.slice()){
+    if(object.isHemisphereLight||object.isDirectionalLight)continue;
+    if(object.isMesh&&object.position.y<=.05&&object.geometry){
+      object.geometry.computeBoundingBox();
+      const bounds=object.geometry.boundingBox;
+      if(bounds.max.x-bounds.min.x>20&&Math.max(bounds.max.z-bounds.min.z,bounds.max.y-bounds.min.y)>18){
+        object.position.y-=.065;
+      }
     }
+    group.add(object);
   }
+  world.add(group);
+  label(name,i,x);
 }
-select.onchange=()=>show(Number(select.value));
-previous.onclick=()=>show(current-1);
-next.onclick=()=>show(current+1);
-document.getElementById('reset').onclick=reset;
-const movement=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight'];
+const keys=new Set(), angles=new THREE.Euler(0,0,0,'YXZ');
+const position=new THREE.Vector3(1,6,0), forward=new THREE.Vector3(), right=new THREE.Vector3();
+let yaw=-Math.PI/2,pitch=0,drag=null,ready=false,automatic=false,elapsed=0,last=0;
+function reset(){
+  automatic=false;elapsed=0;
+  position.set(1,6,0);yaw=-Math.PI/2;pitch=0;
+  auto.textContent='Auto walkthrough';
+}
+resetButton.onclick=reset;
+auto.onclick=()=>{
+  if(automatic){automatic=false;auto.textContent='Auto walkthrough';return;}
+  reset();automatic=true;auto.textContent='Pause auto walkthrough';
+};
+function manual(){
+  if(automatic){automatic=false;auto.textContent='Auto walkthrough';}
+}
+const movement=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight','ShiftLeft','ShiftRight'];
 addEventListener('keydown',e=>{
-  if(e.target.closest?.('select')&&!document.pointerLockElement)return;
-  if(movement.includes(e.code)){e.preventDefault();keys.add(e.code);}
-  if(e.code==='KeyE'&&!e.repeat&&!next.disabled)next.click();
+  if(movement.includes(e.code)){e.preventDefault();keys.add(e.code);manual();}
 });
 addEventListener('keyup',e=>keys.delete(e.code));
 addEventListener('blur',()=>keys.clear());
 document.querySelectorAll('[data-move]').forEach(button=>{
-  button.onpointerdown=e=>{e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.move);};
+  button.onpointerdown=e=>{e.preventDefault();manual();button.setPointerCapture(e.pointerId);keys.add(button.dataset.move);};
   button.onpointerup=button.onpointercancel=()=>keys.delete(button.dataset.move);
 });
-function look(x,y){
-  yaw-=x*.003;
-  pitch=THREE.MathUtils.clamp(pitch-y*.003,-1.42,1.42);
-}
+function look(x,y){manual();yaw-=x*.003;pitch=THREE.MathUtils.clamp(pitch-y*.003,-1.42,1.42);}
 canvas.onpointerdown=e=>{drag=[e.clientX,e.clientY,0];canvas.setPointerCapture(e.pointerId);};
 canvas.onpointermove=e=>{
   if(document.pointerLockElement===canvas||!drag)return;
@@ -169,29 +166,58 @@ canvas.onpointermove=e=>{
   look(dx,dy);drag=[e.clientX,e.clientY,drag[2]+Math.abs(dx)+Math.abs(dy)];
 };
 canvas.onpointerup=e=>{
-  if(drag&&drag[2]<5&&e.pointerType==='mouse'&&document.pointerLockElement!==canvas){
-    canvas.requestPointerLock?.()?.catch(()=>{});
-  }
+  if(drag&&drag[2]<5&&e.pointerType==='mouse'&&document.pointerLockElement!==canvas)canvas.requestPointerLock?.()?.catch(()=>{});
   drag=null;
 };
 canvas.onpointercancel=()=>{drag=null;};
 document.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
-let last=0;
-canvasRenderer.setAnimationLoop(now=>{
-  const dt=Math.min(.05,(now-last)/1000);last=now;
-  if(!active)return;
+const smooth=t=>t*t*(3-2*t);
+const autoSegments=[];
+let from=1,end=0;
+for(const {x} of route){
+  const duration=Math.max(3,(x-from)/30);
+  autoSegments.push({start:end,end:end+duration,from,to:x});
+  end+=duration;
+  autoSegments.push({start:end,end:end+4,from:x,to:x,inspect:true});
+  end+=4;from=x;
+}
+function autoWalk(dt){
+  elapsed+=dt;
+  const segment=autoSegments.find(s=>elapsed<s.end);
+  if(!segment){manual();return;}
+  const t=THREE.MathUtils.clamp((elapsed-segment.start)/(segment.end-segment.start),0,1);
+  position.x=THREE.MathUtils.lerp(segment.from,segment.to,smooth(t));
+  position.z=segment.inspect?-4*Math.sin(Math.PI*t):0;
+  yaw=segment.inspect?-Math.PI/2+(Math.PI/2)*smooth(Math.min(t*4,(1-t)*4,1)):-Math.PI/2;
+  pitch=segment.inspect?.04*Math.sin(Math.PI*t):0;
+}
+renderer.setAnimationLoop(now=>{
+  const dt=Math.min(.045,(now-last)/1000);last=now;
+  if(automatic)autoWalk(dt);
   const w=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
   const a=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
   forward.set(-Math.sin(yaw),0,-Math.cos(yaw));
-  lateral.set(Math.cos(yaw),0,-Math.sin(yaw));
-  const speed=stops[current][1]==='main-hall.html'||stops[current][1]==='dinner-lawn.html'?15:7;
-  position.addScaledVector(forward,w*speed*dt).addScaledVector(lateral,a*speed*dt);
-  if((w||a)&&portal&&!next.disabled&&Math.hypot(position.x-portal.position.x,position.z-portal.position.z)<1.2){
-    keys.clear();next.click();
-  }
+  right.set(Math.cos(yaw),0,-Math.sin(yaw));
+  const speed=keys.has('ShiftLeft')||keys.has('ShiftRight')?43:18;
+  position.addScaledVector(forward,w*speed*dt).addScaledVector(right,a*speed*dt);
+  position.x=THREE.MathUtils.clamp(position.x,-6,total+10);
+  position.z=THREE.MathUtils.clamp(position.z,-180,19);
   camera.position.copy(position);
   camera.quaternion.setFromEuler(angles.set(pitch,yaw,0,'YXZ'));
-  canvasRenderer.render(world,camera);
+  if(ready){
+    const closest=route.reduce((best,item)=>Math.abs(item.x-position.x)<Math.abs(best.x-position.x)?item:best);
+    status.textContent='Nearby · '+closest.stop[0];
+  }
+  renderer.render(world,camera);
 });
-show(0);
+(async()=>{
+  const failures=[];
+  for(let i=0;i<route.length;i++){
+    const {index,x,stop}=route[i];
+    status.textContent='Building the route · '+(i+1)+' / '+route.length;
+    try{install(await loadRoom(index),x,stop[0],i);}catch(error){failures.push(stop[0]);console.error(error);}
+  }
+  if(failures.length){status.textContent='Some stops could not load: '+failures.join(', ');return;}
+  ready=true;auto.disabled=resetButton.disabled=false;
+})();
 </script></html>
