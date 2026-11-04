@@ -1,0 +1,197 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Limitless · First-person walkthrough</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#101727;color:white;font:15px system-ui}canvas{display:block;touch-action:none}header,footer{position:fixed;z-index:2;background:#101727ee;border:1px solid #8d7246;border-radius:10px;padding:12px;left:14px;max-width:calc(100vw - 28px)}header{top:14px}footer{bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}small{letter-spacing:.15em;color:#eac980}h1{font-size:21px;margin:3px 0 9px}select,button,a{background:#26334b;border:1px solid #8d7246;color:white;border-radius:6px;padding:7px 9px;font:inherit;text-decoration:none}button{cursor:pointer}button:disabled{opacity:.45}#status{font-size:13px;color:#efcb88}#reticle{position:fixed;left:50%;top:50%;width:5px;height:5px;border-radius:50%;background:#fff9;pointer-events:none}iframe{display:none}#touch{display:none}@media(pointer:coarse){#touch{display:inline-flex;gap:4px}}
+</style>
+<header><small>LIMITLESS / FIRST PERSON</small><h1 id="title">Loading walkthrough</h1><select id="views" aria-label="Choose a view"></select></header>
+<div id="reticle"></div>
+<footer><button id="previous">Previous</button><button id="next">Next view</button><button id="reset">Reset position</button><a href="./">Scene pages</a><span id="touch"><button data-move="KeyW">↑</button><button data-move="KeyA">←</button><button data-move="KeyS">↓</button><button data-move="KeyD">→</button></span><span id="status">WASD to move · Drag or click to look · E for next view</span></footer>
+<script src="art/three.min.js"></script>
+<script>
+const stops=[["Arrival & wayfinding", "arrival.html"], ["Entrance arch", "index.html"], ["Red carpet corridor", "corridor.html"], ["Hi-tea pergola", "hi-tea.html"], ["Photo opportunity", "photo-opportunity.html"], ["Registration desk", "registration.html"], ["Glass door entry", "glass-entry.html"], ["L-shaped indoor standee", "indoor-standee.html"], ["Indoor corridor panels", "indoor-panels.html"], ["View-blocker panels", "view-blockers.html"], ["Main hall & banquet seating", "main-hall.html"], ["Main hall ceiling banners", "main-hall.html", "banners"], ["Dinner lawn branding", "dinner-lawn.html"], ["Dinner lawn LED stage", "dinner-lawn.html", "outdoor-led"]];
+const canvasRenderer=new THREE.WebGLRenderer({antialias:true});
+canvasRenderer.shadowMap.enabled=true;
+canvasRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
+document.body.prepend(canvasRenderer.domElement);
+const world=new THREE.Scene(), camera=new THREE.PerspectiveCamera(58,1,.08,500);
+const zone=new THREE.Group();
+world.add(zone);
+const title=document.getElementById('title'), select=document.getElementById('views');
+const previous=document.getElementById('previous'), next=document.getElementById('next');
+const status=document.getElementById('status');
+const controls='WASD to move · Drag or click to look · E for next view';
+stops.forEach(([name],i)=>select.add(new Option((i+1)+' · '+name,i)));
+let current=0, request=0, active=null, drag=null, yaw=0, pitch=0, portal=null;
+const rooms=new Map(), keys=new Set(), angles=new THREE.Euler(0,0,0,'YXZ');
+const position=new THREE.Vector3(), forward=new THREE.Vector3(), lateral=new THREE.Vector3();
+const canvas=canvasRenderer.domElement;
+function resize(){
+  camera.aspect=innerWidth/innerHeight;
+  camera.fov=camera.aspect<1.2?Math.min(95,58/camera.aspect):58;
+  camera.updateProjectionMatrix();
+  canvasRenderer.setSize(innerWidth,innerHeight);
+}
+addEventListener('resize',resize);resize();
+
+function photoRoom(){
+  const room=new THREE.Scene();
+  room.background=new THREE.Color(0x101727);
+  const map=new THREE.TextureLoader().load('art/photo-opportunity-original.jpg');
+  map.colorSpace=THREE.SRGBColorSpace;
+  const image=new THREE.Mesh(new THREE.PlaneGeometry(18,12),new THREE.MeshBasicMaterial({map}));
+  image.position.set(0,6,0);
+  room.add(image);
+  const floor=new THREE.Mesh(new THREE.PlaneGeometry(64,64),new THREE.MeshBasicMaterial({color:0x362d27}));
+  floor.rotation.x=-Math.PI/2;
+  room.add(floor);
+  const view=new THREE.PerspectiveCamera();
+  view.position.set(0,6,20);
+  view.lookAt(0,6,0);
+  return {room,view};
+}
+
+async function loadRoom(index){
+  const [,file,detail]=stops[index];
+  if(file==='photo-opportunity.html')return photoRoom();
+  const response=await fetch(file);
+  if(!response.ok)throw Error('Could not load '+file);
+  const source=await response.text();
+  const doc=new DOMParser().parseFromString(source,'text/html');
+  const scripts=[...doc.scripts].slice(0,2);
+  const program=scripts[1].textContent.replace('renderer.setAnimationLoop(now=>','window.walkFrame=(now=>');
+  const frame=document.createElement('iframe');
+  const exportCode=`
+    if (${JSON.stringify(detail||'')})document.getElementById(${JSON.stringify(detail||'')})?.click();
+    window.walkFrame(performance.now());
+    window.walkRoom={room:scene,view:camera};
+  `;
+  const html=doc.body.innerHTML.split('<script')[0];
+  frame.srcdoc='<!doctype html><base href="'+new URL('./',location.href).href+'">'+html+
+    '<script>const THREE=parent.THREE;'+'<\/script><script>'+program+exportCode+'<\/script>';
+  try{
+    await new Promise((resolve,reject)=>{
+      const timeout=setTimeout(()=>reject(Error('Scene timed out')),12000);
+      frame.onload=()=>{clearTimeout(timeout);resolve();};
+      document.body.append(frame);
+    });
+    const result=frame.contentWindow.walkRoom;
+    if(!result)throw Error('Scene could not start');
+    await new Promise(resolve=>setTimeout(resolve,280));
+    result.room.traverse(object=>{if(object.material?.map?.image?.complete)object.material.map.needsUpdate=true;});
+    const context=frame.contentDocument.querySelector('canvas');
+    context?.getContext('webgl2')?.getExtension('WEBGL_lose_context')?.loseContext();
+    return result;
+  }finally{frame.remove();}
+}
+
+function createPortal(view){
+  const direction=new THREE.Vector3(0,0,-1).applyQuaternion(view.quaternion);
+  direction.y=0;direction.normalize();
+  const side=new THREE.Vector3().crossVectors(direction,new THREE.Vector3(0,1,0));
+  const marker=new THREE.Group();
+  marker.position.copy(view.position).addScaledVector(direction,7).addScaledVector(side,5.5);
+  marker.position.y=view.position.y-1.5;
+  marker.rotation.y=Math.atan2(-direction.x,-direction.z);
+  const outline=new THREE.Mesh(new THREE.TorusGeometry(1.34,.045,8,48),new THREE.MeshBasicMaterial({color:0xe7bf75}));
+  outline.scale.y=1.32;
+  marker.add(outline);
+  const paint=document.createElement('canvas');
+  paint.width=512;paint.height=160;
+  const ctx=paint.getContext('2d');
+  ctx.fillStyle='#141c2d';ctx.fillRect(0,0,512,160);
+  ctx.fillStyle='#f2cf8d';ctx.textAlign='center';ctx.font='600 52px system-ui';
+  ctx.fillText('NEXT VIEW',256,98);
+  const map=new THREE.CanvasTexture(paint);
+  map.colorSpace=THREE.SRGBColorSpace;
+  const sign=new THREE.Mesh(new THREE.PlaneGeometry(2.1,.66),new THREE.MeshBasicMaterial({map,side:THREE.DoubleSide}));
+  sign.position.y=.12;
+  marker.add(sign);
+  return marker;
+}
+function reset(){
+  if(!active)return;
+  position.copy(active.view.position);
+  angles.setFromQuaternion(active.view.quaternion,'YXZ');
+  yaw=angles.y;pitch=angles.x;
+}
+async function show(index){
+  if(index<0||index>=stops.length)return;
+  const token=++request;
+  status.textContent='Loading '+stops[index][0]+'…';
+  next.disabled=previous.disabled=true;
+  try{
+    if(!rooms.has(index))rooms.set(index,loadRoom(index).catch(error=>{rooms.delete(index);throw error;}));
+    const room=await rooms.get(index);
+    if(token!==request)return;
+    active=room;current=index;select.value=index;title.textContent=stops[index][0];
+    zone.clear();
+    if(!room.group){room.group=new THREE.Group();room.group.add(...room.room.children.slice());}
+    zone.add(room.group);
+    world.background=room.room.background;
+    world.fog=room.room.fog;
+    portal=index<stops.length-1?createPortal(room.view):null;
+    if(portal)zone.add(portal);
+    reset();
+    status.textContent=controls;
+  }catch(error){
+    if(token===request)status.textContent=error.message;
+  }finally{
+    if(token===request){
+      previous.disabled=current===0;
+      next.disabled=current===stops.length-1;
+    }
+  }
+}
+select.onchange=()=>show(Number(select.value));
+previous.onclick=()=>show(current-1);
+next.onclick=()=>show(current+1);
+document.getElementById('reset').onclick=reset;
+const movement=['KeyW','KeyA','KeyS','KeyD','ArrowUp','ArrowLeft','ArrowDown','ArrowRight'];
+addEventListener('keydown',e=>{
+  if(e.target.closest?.('select')&&!document.pointerLockElement)return;
+  if(movement.includes(e.code)){e.preventDefault();keys.add(e.code);}
+  if(e.code==='KeyE'&&!e.repeat&&!next.disabled)next.click();
+});
+addEventListener('keyup',e=>keys.delete(e.code));
+addEventListener('blur',()=>keys.clear());
+document.querySelectorAll('[data-move]').forEach(button=>{
+  button.onpointerdown=e=>{e.preventDefault();button.setPointerCapture(e.pointerId);keys.add(button.dataset.move);};
+  button.onpointerup=button.onpointercancel=()=>keys.delete(button.dataset.move);
+});
+function look(x,y){
+  yaw-=x*.003;
+  pitch=THREE.MathUtils.clamp(pitch-y*.003,-1.42,1.42);
+}
+canvas.onpointerdown=e=>{drag=[e.clientX,e.clientY,0];canvas.setPointerCapture(e.pointerId);};
+canvas.onpointermove=e=>{
+  if(document.pointerLockElement===canvas||!drag)return;
+  const dx=e.clientX-drag[0],dy=e.clientY-drag[1];
+  look(dx,dy);drag=[e.clientX,e.clientY,drag[2]+Math.abs(dx)+Math.abs(dy)];
+};
+canvas.onpointerup=e=>{
+  if(drag&&drag[2]<5&&e.pointerType==='mouse'&&document.pointerLockElement!==canvas){
+    canvas.requestPointerLock?.()?.catch(()=>{});
+  }
+  drag=null;
+};
+canvas.onpointercancel=()=>{drag=null;};
+document.addEventListener('mousemove',e=>{if(document.pointerLockElement===canvas)look(e.movementX,e.movementY);});
+let last=0;
+canvasRenderer.setAnimationLoop(now=>{
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  if(!active)return;
+  const w=Number(keys.has('KeyW')||keys.has('ArrowUp'))-Number(keys.has('KeyS')||keys.has('ArrowDown'));
+  const a=Number(keys.has('KeyD')||keys.has('ArrowRight'))-Number(keys.has('KeyA')||keys.has('ArrowLeft'));
+  forward.set(-Math.sin(yaw),0,-Math.cos(yaw));
+  lateral.set(Math.cos(yaw),0,-Math.sin(yaw));
+  const speed=stops[current][1]==='main-hall.html'||stops[current][1]==='dinner-lawn.html'?15:7;
+  position.addScaledVector(forward,w*speed*dt).addScaledVector(lateral,a*speed*dt);
+  if((w||a)&&portal&&!next.disabled&&Math.hypot(position.x-portal.position.x,position.z-portal.position.z)<1.2){
+    keys.clear();next.click();
+  }
+  camera.position.copy(position);
+  camera.quaternion.setFromEuler(angles.set(pitch,yaw,0,'YXZ'));
+  canvasRenderer.render(world,camera);
+});
+show(0);
+</script></html>
