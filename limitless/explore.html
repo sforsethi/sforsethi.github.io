@@ -47,26 +47,8 @@ function resize(){
   renderer.setSize(innerWidth,innerHeight);
 }
 addEventListener('resize',resize);resize();
-function photoRoom(){
-  const room=new THREE.Scene();
-  room.background=new THREE.Color(0x101727);
-  const map=new THREE.TextureLoader().load('art/photo-opportunity-original.jpg');
-  map.colorSpace=THREE.SRGBColorSpace;
-  const image=new THREE.Mesh(new THREE.PlaneGeometry(18,12),new THREE.MeshBasicMaterial({map}));
-  image.position.set(0,6,0);
-  room.add(image);
-  const floor=new THREE.Mesh(new THREE.PlaneGeometry(64,64),new THREE.MeshBasicMaterial({color:0x362d27}));
-  floor.rotation.x=-Math.PI/2;
-  room.add(floor);
-  const view=new THREE.PerspectiveCamera();
-  view.position.set(0,6,20);
-  view.lookAt(0,6,0);
-  return {room,view};
-}
-
 async function loadRoom(index){
   const [,file]=stops[index];
-  if(file==='photo-opportunity.html')return photoRoom();
   const response=await fetch(file);
   if(!response.ok)throw Error('Could not load '+file);
   const source=await response.text();
